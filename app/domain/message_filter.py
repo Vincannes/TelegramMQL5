@@ -60,8 +60,10 @@ class MessageFilter(object):
         group = value.group(0)
         return group
 
-    def _get_entry(self):
-        entry_pattern = r"\b(prix\s*d(?:['’]|\s)?entree|entry|price|buy|sell)\b(?:\s+now)?\s*[:\-]?\s*([\d.,]+)"
+    def __get_entry(self):
+        # entry_pattern = r"\b(prix\s*d(?:['’]|\s)?entree|entry|price|buy|sell)\b(?:\s+now)?\s*[:\-]?\s*([\d.,]+)"
+        entry_pattern = r"\b(prix\s*d(?:['’]|\s)?entree|entry|price|buy|sell)\b(?:\s+now)?\s*(?:[:\-]|at)?\s*([\d.,]+)"
+        print(self._text)
         pattern = re.compile(
             entry_pattern,
             FLAGS
@@ -71,9 +73,23 @@ class MessageFilter(object):
             return None
         return m.group(2)
 
+    def _get_entry(self):
+        match_at = re.search(r"\bat\b\s*([\d.,]+)", self._text, flags=FLAGS)
+        if match_at:
+            return match_at.group(1)
+
+        entry_pattern = r"\b(prix\s*d(?:['’]|\s)?entree|entry|price|buy|sell)\b(?:\s+now)?\s*(?:[:\-]|at)?\s*([\d.,]+)"
+        pattern = re.compile(entry_pattern, FLAGS)
+        m = pattern.search(self._text)
+        if not m:
+            return None
+
+        return m.group(2)
+
     def _get_stop(self):
         value = re.search(
-            r"\b(sl|stop\s*loss|stop)\s*[:\-]?\s*([\d.,]+)",
+            r"\b(sl|stop\s*loss|stop)\b\s*(?:[:\-]|at)?\s*([\d.,]+)",
+            # r"\b(sl|stop\s*loss|stop)\s*[:\-]?\s*([\d.,]+)",
             self._text, FLAGS
         )
         if not value:
@@ -82,7 +98,7 @@ class MessageFilter(object):
 
     def _get_profits(self):
         value = re.finditer(
-            r"\b(tp\s*\d*|take\s*profit|profit|target|targets)\s*[:\-]?\s*([\d.,]+)",
+            r"\b(tp\s*\d*|take\s*profit|profit|target|targets)\s*(?:[:\-]|at)?\s*([\d.,]+)",
             self._text, FLAGS
         )
         if not value:
@@ -99,7 +115,6 @@ class MessageFilter(object):
             raise PairErrors(self.PAIRS)
 
         if pair in self.PAIRS_MAPPING.keys():
-            print("ici", pair)
             pair = self.PAIRS_MAPPING.get(pair, pair)
 
         price = self._get_entry()
@@ -145,30 +160,39 @@ if __name__ == "__main__":
     "TARGETS: 2990 - 3090 "\
     "STOPLOSS: 2895"
 
-    message = MessageFilter(txt1)
+    txt4 = "ETH LONG TRADE " \
+           "ENTRY at 2935 " \
+           "TARGETS: 2990 - 3090 " \
+           "STOPLOSS: 2895"
+
+    txt5 = "buy gold at 4931 sl at 4886.5 tp at 4955"
+
+    MessageFilter.PAIRS = ["XAUUSD","EURUSD","SILVER","BTCUSD","EURJPY","ETH","GOLD"]
+    MessageFilter.PAIRS_MAPPING = {"GOLD":"XAUUSD","SILVER":"XAGUSD","ETH":"ETHUSD","BTC":"BTCUSD"}
+    message = MessageFilter(txt5)
     model = message.parse_signal()
     print(model)
 
-    import json, os
-    from datetime import datetime
-    signal = model.to_dict()
-    signal["lot"] = 0.01
-    signal["comment"] = "TelegramSignal"
-    signal["date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    filename = "signal.json"
-
-    if os.path.exists(filename):
-        with open(filename, "r", encoding="utf-8") as f:
-            try:
-                signals = json.load(f)
-                if not isinstance(signals, list):
-                    signals = []
-            except json.JSONDecodeError:
-                signals = []
-    else:
-        signals = []
-
-    signal["index"] = len(signals) + 1
-    signals.append(signal)
-    with open(filename, "w", encoding="utf-8") as f:
-        json.dump(signals, f, indent=4)
+    # import json, os
+    # from datetime import datetime
+    # signal = model.to_dict()
+    # signal["lot"] = 0.01
+    # signal["comment"] = "TelegramSignal"
+    # signal["date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # filename = "signal.json"
+    #
+    # if os.path.exists(filename):
+    #     with open(filename, "r", encoding="utf-8") as f:
+    #         try:
+    #             signals = json.load(f)
+    #             if not isinstance(signals, list):
+    #                 signals = []
+    #         except json.JSONDecodeError:
+    #             signals = []
+    # else:
+    #     signals = []
+    #
+    # signal["index"] = len(signals) + 1
+    # signals.append(signal)
+    # with open(filename, "w", encoding="utf-8") as f:
+    #     json.dump(signals, f, indent=4)

@@ -25,7 +25,6 @@ config.read(os.path.join(PROJECT_DIR, "app", "config", "myconfig.ini"))
 MQL_FILE_DIR = config["paths"]["mql_file_dir"]
 api_id = int(config["telegram"]["api_id"])
 api_hash = config["telegram"]["api_hash"]
-phone = config["telegram"]["phone"]
 session_name = config["telegram"]["session_name"]
 filename = os.path.join(MQL_FILE_DIR, "signals.json")
 log_file = os.path.join(PROJECT_DIR, "logs", "telegram_log.txt")
@@ -59,8 +58,13 @@ async def main() -> None:
                 message = MessageFilter(event.message.text)
                 model = message.parse_signal()
                 print(model)
+                with open(log_file, "a", encoding="utf-8") as f:
+                    f.write(str(model))
             except Exception as e:
                 FailedParseMessage(event.message.text, e)
+                print(FailedParseMessage(event.message.text, e))
+                with open(log_file, "a", encoding="utf-8") as f:
+                    f.write(str(FailedParseMessage(event.message.text, e)))
 
             if model:
                 signal = model.to_dict()
