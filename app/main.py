@@ -11,6 +11,9 @@ from telethon import TelegramClient, events
 from app.domain.exceptions import FailedParseMessage
 from app.domain.message_filter import MessageFilter
 
+# =========================
+# CONFIG
+# =========================
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(__file__))
 
@@ -28,6 +31,10 @@ pair_mapping = dict(config["pair_mapping"])
 client = TelegramClient(session_name, api_id, api_hash)
 MessageFilter.PAIRS = [p.strip() for p in config["trading"]["pairs"].split(",")]
 MessageFilter.PAIRS_MAPPING = pair_mapping
+
+# =========================
+# PROCESS
+# =========================
 
 
 @client.on(events.NewMessage(chats=config["telegram"]["group_name"]))
