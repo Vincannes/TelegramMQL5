@@ -1,10 +1,8 @@
 #!/usr/bin/env python
-# #support	:Trolard Vincent
-# copyright	:Vincannes
-#!/usr/bin/env python
+# #support : Trolard Vincent
+# copyright : Vincannes
+
 import os
-import asyncio
-import argparse
 import configparser
 from telethon import TelegramClient, events
 
@@ -19,7 +17,7 @@ from app.domain.exceptions import FailedParseMessage
 PROJECT_DIR = os.path.dirname(os.path.dirname(__file__))
 
 config = configparser.ConfigParser()
-config.optionxform = str  # conserve la casse
+config.optionxform = str  # preserve case
 config.read(os.path.join(PROJECT_DIR, "app", "config", "myconfig.ini"))
 
 api_id = int(config["telegram"]["api_id"])
@@ -71,59 +69,12 @@ def test_message_filter():
         print("FAILED TO PARSE THE MESSAGE\n")
         print(e)
 
-
-# =========================
-# TEST 2 : TelegramClient réel
-# =========================
-
-async def test_telegram_client():
-    print("\n🧪 TEST TelegramClient (réel)\n" + "-" * 40)
-
-    client = TelegramClient(session_name + "_test", api_id, api_hash)
-
-    @client.on(events.NewMessage(chats=group_name))
-    async def handler(event):
-        print("\n📨 MESSAGE REÇU DE TELEGRAM")
-        print("From :", event.sender_id)
-        print("Text :", event.message.text)
-
-        try:
-            mf = MessageFilter(event.message.text)
-            model = mf.parse_signal()
-            print("✅ Signal détecté :", model)
-        except Exception as e:
-            FailedParseMessage(event.message.text, e)
-            print("❌ Message ignoré")
-
-        print("\n⛔ Fin du test Telegram (1 message)")
-        await client.disconnect()
-
-    await client.start()
-    print("🟢 En attente d’un message Telegram...")
-    await client.run_until_disconnected()
-
-
 # =========================
 # MAIN
 # =========================
 
 def main():
-    parser = argparse.ArgumentParser(description="TelegramMQL5 test runner")
-    parser.add_argument(
-        "--mode",
-        choices=["message", "telegram"],
-        required=True,
-        help="Test mode: 'message' to test MessageFilter, 'telegram' to test TelegramClient"
-    )
-
-    args = parser.parse_args()
-
-    if args.mode == "message":
-        test_message_filter()
-
-    elif args.mode == "telegram":
-        asyncio.run(test_telegram_client())
-
+    test_message_filter()
 
 if __name__ == "__main__":
     main()

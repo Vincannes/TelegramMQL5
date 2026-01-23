@@ -4,13 +4,9 @@
 CTrade trade;
 CJAVal JsonValue;
 
-
-// Chemin du fichier JSON (dans MQL5/Files)
 string filename = "signals.json";
 
-//+------------------------------------------------------------------+
-//| Expert initialization                                             |
-//+------------------------------------------------------------------+
+
 int OnInit(){
    Print("Signal EA start");
    ReadSignalsAndExecute();
@@ -18,29 +14,27 @@ int OnInit(){
 }
 
 void OnTick(){
-   // ReadSignalsAndExecute();
+   ReadSignalsAndExecute();
 }
 
-//+------------------------------------------------------------------+
-//| Fonction pour lire le fichier JSON et exécuter les trades        |
-//+------------------------------------------------------------------+
+
 void ReadSignalsAndExecute(){
    ResetLastError();
 
    CJAVal root;
    string json_text;
-   
+
    int handle=FileOpen(filename, FILE_READ|FILE_TXT|FILE_ANSI);
    if(handle == INVALID_HANDLE){
       Print("❌ Cannot open file: ", filename);
-      Print("Error code ", GetLastError()); 
+      Print("Error code ", GetLastError());
       return;
    }
 
    while(!FileIsEnding(handle))
         json_text += FileReadString(handle);
 
-   FileClose(handle);   
+   FileClose(handle);
    if(!root.Deserialize(json_text)){
       Print("❌ Failed to JSON.Deserialize");
       return;
@@ -48,7 +42,7 @@ void ReadSignalsAndExecute(){
 
    int count = root.Size();
    for(int i = 0; i < count; i++){
-      CJAVal sig = root[i];  // chaque signal est un objet
+      CJAVal sig = root[i];
 
       string symbol  = sig["symbol"].ToStr();
       int type       = sig["type"].ToInt();
@@ -58,7 +52,7 @@ void ReadSignalsAndExecute(){
       string date    = sig["date"].ToStr();
       string comment = sig["comment"].ToStr();
       long index     = sig["index"].ToInt();
-      
+
       string final_comment = comment + "#" + IntegerToString(index);
       CJAVal tpArr = sig["tp"];
       double tps[];
@@ -105,7 +99,6 @@ void OpenTrade(string symbol, int type, double volume, double entry, double sl, 
       return;
    }
 
-   // Vérifier que le symbole est valide
    if(!SymbolSelect(symbol,true)){
       Print("Symbole invalide: ", symbol);
       return;
@@ -146,7 +139,7 @@ bool IsSignalAlreadyExecuted(string expected){
       if(StringFind(comment, expected) != -1)
          return true;
    }
-   // 2️⃣ Vérifier historique (clôturé aujourd'hui)
+
    datetime today_start = StringToTime(TimeToString(TimeCurrent(), TIME_DATE));
    datetime now = TimeCurrent();
 
