@@ -11,10 +11,10 @@ from app.domain.model.order_model import OrderModel
 FLAGS = re.IGNORECASE
 
 
-
 class MessageFilter(object):
 
     PAIRS = []
+    PAIRS_MAPPING = {}
 
     def __init__(self, text):
         self._text = self.normalize_text(text.lower())
@@ -53,7 +53,7 @@ class MessageFilter(object):
         return group
 
     def _get_pair(self):
-        pairs_pattern = r"\b(" + "|".join(map(re.escape, PAIRS)) + r")\b"
+        pairs_pattern = r"\b(" + "|".join(map(re.escape, self.PAIRS)) + r")\b"
         value = re.search(pairs_pattern, self._text, FLAGS)
         if not value:
             return None
@@ -96,7 +96,11 @@ class MessageFilter(object):
 
         pair = self._get_pair()
         if not pair:
-            raise PairErrors(PAIRS)
+            raise PairErrors(self.PAIRS)
+
+        if pair in self.PAIRS_MAPPING.keys():
+            print("ici", pair)
+            pair = self.PAIRS_MAPPING.get(pair, pair)
 
         price = self._get_entry()
         if not price:
