@@ -214,7 +214,7 @@ del telegram_session.session # Windows
 ## Compile
 
 ```bash
-pyinstaller app/TelegramMQL.spec --clean
+pyinstaller app/TelegramMQL.spec --clean --noconfirm
 ```
 
 ---

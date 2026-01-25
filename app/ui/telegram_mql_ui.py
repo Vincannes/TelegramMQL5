@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QFileDialog
 
 from app import constants
 
+
 class MainController(object):
     def __init__(self, ui_file):
         # Load UI
@@ -41,6 +42,7 @@ class MainController(object):
         self.window.btnValidate.clicked.connect(self.on_validate_group)
 
         self.window.btnLoginCode.clicked.connect(self.go_to_groups)
+        self.window.actionChangeMQLFolder.triggered.connect(self.show_select_folder)
 
     # ================= LOGIN =================
 
@@ -106,9 +108,17 @@ class MainController(object):
             options=QFileDialog.ShowDirsOnly
         )
         if folder:
-            self.window.labelSelectedFolder.setText(folder)
+            self.window.lineEditFolderPath.setText(folder)
             with open(constants.SETTINGS_FILE, "w", encoding="utf-8") as f:
                 json.dump({"MQL_DIR_PATH": folder}, f, indent=4, ensure_ascii=False)
+
+    def show_select_folder(self):
+        page_index = self.window.stackedWidget.indexOf(self.window.page_select_folder)
+        if page_index != -1:
+            self.window.stackedWidget.setCurrentIndex(page_index)
+            self.window.lineEditFolderPath.clear()
+            self.window.labelFolderStatus.setText("")
+
 
     # ================= NAVIGATION =================
     def go_to_groups(self):
@@ -156,4 +166,3 @@ class MainController(object):
 
     def show(self):
         self.window.show()
-
