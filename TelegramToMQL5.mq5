@@ -6,6 +6,8 @@ CJAVal JsonValue;
 
 string filename = "signals.json";
 
+input double lot = 0.01; // Lot
+input string inpcomment = "TeleSignal"; // Comment
 
 int OnInit(){
    Print("Signal EA start");
@@ -23,18 +25,18 @@ void ReadSignalsAndExecute(){
 
    CJAVal root;
    string json_text;
-
+   
    int handle=FileOpen(filename, FILE_READ|FILE_TXT|FILE_ANSI);
    if(handle == INVALID_HANDLE){
       Print("❌ Cannot open file: ", filename);
-      Print("Error code ", GetLastError());
+      Print("Error code ", GetLastError()); 
       return;
    }
 
    while(!FileIsEnding(handle))
         json_text += FileReadString(handle);
 
-   FileClose(handle);
+   FileClose(handle);   
    if(!root.Deserialize(json_text)){
       Print("❌ Failed to JSON.Deserialize");
       return;
@@ -46,13 +48,13 @@ void ReadSignalsAndExecute(){
 
       string symbol  = sig["symbol"].ToStr();
       int type       = sig["type"].ToInt();
-      double vol     = sig["lot"].ToDbl();
+      double vol     = lot;
       double entry   = sig["entry"].ToDbl();
       double sl      = sig["sl"].ToDbl();
       string date    = sig["date"].ToStr();
-      string comment = sig["comment"].ToStr();
+      string comment = inpcomment;
       long index     = sig["index"].ToInt();
-
+      
       string final_comment = comment + "#" + IntegerToString(index);
       CJAVal tpArr = sig["tp"];
       double tps[];
