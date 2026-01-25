@@ -11,7 +11,7 @@ class PairErrors(Exception):
 class DirectionError(Exception):
     def __init__(self, msg):
         super().__init__(
-            "Direction cannot found in message : '{}'".format(msg)
+            "Order type cannot found in message : '{}'".format(msg)
         )
 
 

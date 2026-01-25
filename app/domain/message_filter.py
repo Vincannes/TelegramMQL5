@@ -5,6 +5,7 @@
 import re
 import unicodedata
 
+from app import constants
 from app.domain.exceptions import PairErrors, PriceError, DirectionError
 from app.domain.model.order_model import OrderModel
 
@@ -13,11 +14,16 @@ FLAGS = re.IGNORECASE
 
 class MessageFilter(object):
 
-    PAIRS = []
-    PAIRS_MAPPING = {}
+    TEMPLATE_REGEX = constants.DEFAULT_FIELDS
 
     def __init__(self, text):
         self._text = self.normalize_text(text.lower())
+        self._pairs = [s.strip() for s in self.TEMPLATE_REGEX.get(constants.SYMBOL_KEY_FIELD, "").split(",")]
+        self._pairs_mapping = {}
+        for m in self.TEMPLATE_REGEX.get(constants.CUST_SYMBOL_KEY_FIELD, "").split(","):
+            if "=" in m:
+                k, v = m.split("=")
+                self._pairs_mapping[k.strip().lower()] = v.strip().lower()
 
     def normalize_text(self, text: str) -> str:
         text = text.replace("\n", " ").replace("\r", " ")
@@ -43,67 +49,46 @@ class MessageFilter(object):
         return text
 
     def _get_order_type(self):
-        value = re.search(
-            r"\b(buy|sell|achat|vente|long|short)\b",
-            self._text, FLAGS
-        )
-        if not value:
+        keywords = [kw.strip() for kw in self.TEMPLATE_REGEX.get(constants.ORDER_KEY_FIELD, "").split(",")]
+        if not keywords:
             return None
-        group = value.group(0)
-        return group
+        pattern = r"\b(" + "|".join(map(re.escape, keywords)) + r")\b"
+        m = re.search(pattern, self._text, FLAGS)
+        return m.group(0) if m else None
 
     def _get_pair(self):
-        pairs_pattern = r"\b(" + "|".join(map(re.escape, self.PAIRS)) + r")\b"
-        value = re.search(pairs_pattern, self._text, FLAGS)
-        if not value:
+        if not self._pairs:
             return None
-        group = value.group(0)
-        return group
-
-    def __get_entry(self):
-        # entry_pattern = r"\b(prix\s*d(?:['’]|\s)?entree|entry|price|buy|sell)\b(?:\s+now)?\s*[:\-]?\s*([\d.,]+)"
-        entry_pattern = r"\b(prix\s*d(?:['’]|\s)?entree|entry|price|buy|sell)\b(?:\s+now)?\s*(?:[:\-]|at)?\s*([\d.,]+)"
-        print(self._text)
-        pattern = re.compile(
-            entry_pattern,
-            FLAGS
-        )
-        m = pattern.search(self._text)
+        pattern = r"\b(" + "|".join(map(re.escape, self._pairs)) + r")\b"
+        m = re.search(pattern, self._text, FLAGS)
         if not m:
             return None
-        return m.group(2)
+        pair = m.group(0)
+        return pair
 
     def _get_entry(self):
-        match_at = re.search(r"\bat\b\s*([\d.,]+)", self._text, flags=FLAGS)
-        if match_at:
-            return match_at.group(1)
-
-        entry_pattern = r"\b(prix\s*d(?:['’]|\s)?entree|entry|price|buy|sell)\b(?:\s+now)?\s*(?:[:\-]|at)?\s*([\d.,]+)"
-        pattern = re.compile(entry_pattern, FLAGS)
-        m = pattern.search(self._text)
-        if not m:
+        keywords = [kw.strip() for kw in self.TEMPLATE_REGEX.get(constants.ENTRY_KEY_FIELD, "").split(",")]
+        if not keywords:
             return None
-
-        return m.group(2)
+        pattern = r"\b(" + "|".join(map(re.escape, keywords)) + r")\b\s*(?:[:\-]|at)?\s*([\d.,]+)"
+        m = re.search(pattern, self._text, FLAGS)
+        return m.group(2) if m else None
 
     def _get_stop(self):
-        value = re.search(
-            r"\b(sl|stop\s*loss|stop)\b\s*(?:[:\-]|at)?\s*([\d.,]+)",
-            # r"\b(sl|stop\s*loss|stop)\s*[:\-]?\s*([\d.,]+)",
-            self._text, FLAGS
-        )
-        if not value:
+        keywords = [kw.strip() for kw in self.TEMPLATE_REGEX.get(constants.SL_KEY_FIELD, "").split(",")]
+        if not keywords:
             return None
-        return value.group(2)
+        pattern = r"\b(" + "|".join(map(re.escape, keywords)) + r")\b\s*(?:[:\-]|at)?\s*([\d.,]+)"
+        m = re.search(pattern, self._text, FLAGS)
+        return m.group(2) if m else None
 
     def _get_profits(self):
-        value = re.finditer(
-            r"\b(tp\s*\d*|take\s*profit|profit|target|targets)\s*(?:[:\-]|at)?\s*([\d.,]+)",
-            self._text, FLAGS
-        )
-        if not value:
-            return None
-        return [v.group(2) for v in value]
+        keywords = [kw.strip() for kw in self.TEMPLATE_REGEX.get(constants.TP_KEY_FIELD, "").split(",")]
+        if not keywords:
+            return []
+        pattern = r"\b(" + "|".join(map(re.escape, keywords)) + r")\b\s*(?:[:\-]|at)?\s*([\d.,]+)"
+        matches = re.finditer(pattern, self._text, FLAGS)
+        return [m.group(2) for m in matches]
 
     def parse_signal(self):
         direction = self._get_order_type()
@@ -112,10 +97,10 @@ class MessageFilter(object):
 
         pair = self._get_pair()
         if not pair:
-            raise PairErrors(self.PAIRS)
+            raise PairErrors(self._pairs)
 
-        if pair in self.PAIRS_MAPPING.keys():
-            pair = self.PAIRS_MAPPING.get(pair, pair)
+        if pair in self._pairs_mapping.keys():
+            pair = self._pairs_mapping.get(pair, pair)
 
         price = self._get_entry()
         if not price:
@@ -167,11 +152,21 @@ if __name__ == "__main__":
 
     txt5 = "buy gold at 4931 sl at 4886.5 tp at 4955"
 
-    MessageFilter.PAIRS = ["XAUUSD","EURUSD","SILVER","BTCUSD","EURJPY","ETH","GOLD"]
-    MessageFilter.PAIRS_MAPPING = {"GOLD":"XAUUSD","SILVER":"XAGUSD","ETH":"ETHUSD","BTC":"BTCUSD"}
-    message = MessageFilter(txt5)
-    model = message.parse_signal()
-    print(model)
+    data = {
+        "Order Type Keyword": "buy, sell, achat, vente, long, short",
+        "Entry Price Keyword": "Entry zone, at, now, prix d entree, sell, buy, entry",
+        "Stop Loss Keyword": "stop loss, stop-loss, sl, sl @, STOPLOSS, Stop",
+        "Take Profit Keyword": "take profit, TProfit, take-profit, tp, TakeProfit, TARGETS, - , TP 1 : , TP 4 : , TP 2 : , TP 3 : ",
+        "Symbol Keyword": "GOLD, BTC, EURUSD, USDJPY, XAUUSD, EURJPY, ETH",
+        "Custom Symbol Matchs": "GOLD=XAUUSD, BTC=BTCUSD"
+    }
+    MessageFilter.TEMPLATE_REGEX = data
+    for i in [txt, txt1, txt2, txt3, txt4, txt5]:
+        print()
+        print(i)
+        message = MessageFilter(i)
+        model = message.parse_signal()
+        print(model)
 
     # import json, os
     # from datetime import datetime

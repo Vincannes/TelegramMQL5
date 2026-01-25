@@ -13,8 +13,8 @@ It supports **MessageFilter parsing**, **signal mapping**, and **secure login** 
 * [Installation](#installation)
 * [Configuration](#configuration)
 * [Usage](#usage)
-
   * [Running the main bot](#running-the-main-bot)
+  * [Getting Private Group IDs](#getting-group-id)
   * [Testing MessageFilter](#testing-messagefilter)
 * [Session Management](#session-management)
 * [Project Structure](#project-structure)
@@ -41,6 +41,10 @@ Install python from this [**python official page**](https://www.python.org/ftp/p
 
 ---
 
+&nbsp;
+
+&nbsp;
+
 ## Installation
 
 1. Download .rar given.
@@ -65,7 +69,16 @@ pip install -r requirements.txt
 
 Now you have all environnement set.
 
----
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
 
 ## Configuration
 
@@ -75,9 +88,8 @@ Go to the provided config template `TelegramMQL5/app/config/config.ini` and fill
 [telegram]
 api_id = 123456
 api_hash = abcdef1234567890
-phone = +33123456789
 session_name = telegram_session
-group_name = MyTradingGroup
+group_id = -12345678912
 
 [paths]
 mql_file_dir = C:\Users\User\AppData\Roaming\MetaQuotes\Terminal\<YourTerminalID>\MQL5\Files
@@ -102,8 +114,9 @@ comment = TelegramSignal
 * **`api_id` / `api_hash`**: obtained from [my.telegram.org](https://my.telegram.org).
   - Tutorial [here](https://www.youtube.com/watch?v=kCDUbJU99F8) at 2m35
 * **`session_name`**: the filename used to store your session (`telegram_session.session`).
-* **`group_name`**: name of the Telegram group you want to get messages from.
+* **`group_id`**: ID of the Telegram group you want to get messages from.
   - **Required**: If this is incorrect, the bot won’t receive messages.
+  - The ID can be found with command : "python -m app.get_id_channels"
 * **`mql_file_dir`**: Replace <YourUser> and <YourTerminalID> with your Windows username and your MT5 terminal ID..
   - **Required**: This ensures that the bot writes the signals JSON (signals.json) into the correct folder that your EA will read.
 * **`pairs`**: list of trading symbols the parser will accept.
@@ -112,8 +125,6 @@ comment = TelegramSignal
   - This ensures that messages like `Buy: GOLD` or `Sell: SILVER` can be correctly interpreted and saved with the proper symbol for trading.
 * **`default_lot`**: the lot you want to open in your trade.
 
----
-
 ## Usage
 
 ### Running the main bot
@@ -121,7 +132,6 @@ comment = TelegramSignal
 ```bash
 python -m app.main
 ```
-
 **How it works:**
 
 * The bot will automatically check if a Telegram session file (`session_name.session`) exists.
@@ -151,7 +161,6 @@ python -m app.main
 ```
 ████████████████████████
 █ ▄▄▄▄▄ █ ▄▀▀ █ ▄▄▄▄▄ █
-█ █   █ █▀▀▀▀▀█ █   █ █
 █ █▄▄▄█ █ ▀▄▀ █ █▄▄▄█ █
 █▄▄▄▄▄▄▄█▄▄█▄▄█▄▄▄▄▄▄▄█
 ```
@@ -178,6 +187,56 @@ Disconnected from Telegram.
 
 ---
 
+### Getting Group ID
+
+To listen to a **Telegram group**, the bot need:
+
+* **`group_id`** → for private groups (numeric ID, starts with `-100...`)
+
+For **private groups**, you cannot use the name. You must use the numeric ID.
+
+#### Step 1 – Run the ID retrieval script
+
+TelegramMQL5 includes a script that lists all the groups your account belongs to, along with their IDs:
+
+```bash
+python -m app.get_id_channels
+```
+
+&nbsp;
+
+#### Step 2 – Read the output
+
+The script will display something like this:
+
+```
+MyPublicGroup -100987654321
+TradingSignalsPrivate -1001234567890
+SomeOtherGroup -1001122334455
+```
+
+* **Name** → name of the group as it appears in Telegram
+* **ID** → numeric group ID (use this for private groups)
+
+#### Step 3 – Update `config.ini`
+
+Copy the numeric ID of your group and paste it in the config:
+
+```ini
+[telegram]
+group_id = -1001234567890  ; Private group ID
+```
+
+#### Step 4 – Run the bot
+
+```bash
+python -m app.main
+```
+
+* The bot will listen to the group using the **ID for private groups**.
+* This avoids errors like `ValueError: Cannot find any entity corresponding to "MyPrivateGroup"`.
+
+---
 ### Testing MessageFilter
 
 ```bash
@@ -186,7 +245,6 @@ python -m app.test
 
 * Allows you to paste **any Telegram message** manually.
 * Multi-line messages with emojis are supported.
-* Finish by entering an **empty line** to start parsing.
 
 **Example message to test:**
 
@@ -195,8 +253,6 @@ Buy : XAUUSD
 🎯 Entry : 4822
 ⛔️ Stop : 4812,62
 🚀 TP 1 : 4842,6
-🚀 TP 2 : 4962,62
-🚀 TP 3 : 4852,62
 ```
 
 * Paste this message in the terminal.
@@ -245,6 +301,12 @@ C:\Users\<YourUser>\AppData\Roaming\MetaQuotes\Terminal\<YourTerminalID>\MQL5\Ex
 * Open MT5 and load the Expert Advisor (EA) on **any chart**.
 * In the **Experts** window, verify that there are **no errors**.
 * The EA will automatically read the signals from `signals.json` and execute trades according to your settings.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
 
 ### 4. Run TelegramMQL5
 

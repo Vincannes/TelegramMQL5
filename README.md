@@ -13,10 +13,9 @@ It supports **MessageFilter parsing**, **signal mapping**, and **secure login** 
 * [Installation](#installation)
 * [Configuration](#configuration)
 * [Usage](#usage)
-
   * [Running the main bot](#running-the-main-bot)
   * [Testing MessageFilter](#testing-messagefilter)
-  * [Testing TelegramClient](#testing-telegramclient)
+  * [Getting Private Group IDs](#getting-private-group-ids)
 * [Project Structure](#project-structure)
 * [Session Management](#session-management)
 * [License](#license)
@@ -66,7 +65,6 @@ cd TelegramMQL5
 
 ```bash
 python -m venv venv
-source venv/bin/activate  # Linux/macOS
 venv\Scripts\activate     # Windows
 ```
 
@@ -155,6 +153,27 @@ Buy : XAUUSD
 * Any parsing errors are logged using `FailedParseMessage`.
 
 ---
+### Getting Private Group IDs
+
+Sometimes you need the ID of private groups to configure your bot. 
+Telegram private groups cannot be accessed by name, only by their ID.
+
+```bash
+python -m app.get_id_channels
+>>
+  Telegram 777000
+  MyRobotTrading 6774403370
+```
+
+The script will list all groups you belong to, including private groups.
+
+Use the ID (usually starts with -100...) in your main bot configuration instead of the name.
+
+This allows Telethon to listen to private groups safely, avoiding ValueError: Cannot find any entity.
+
+💡 **Tip:** You can replace in your `config/config.ini` file
+
+---
 
 ## Project Structure
 
@@ -190,6 +209,13 @@ del telegram_session.session # Windows
 
 * QR code login is displayed in the terminal if the session is missing.
 * 2FA login is prompted if the account has a password enabled.
+
+---
+## Compile
+
+```bash
+pyinstaller app/TelegramMQL.spec --clean
+```
 
 ---
 
