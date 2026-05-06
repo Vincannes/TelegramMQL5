@@ -5,6 +5,9 @@ import json
 import qasync
 import asyncio
 
+sys.path.append(os.path.dirname(__file__))
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 from telethon import TelegramClient
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QListWidgetItem

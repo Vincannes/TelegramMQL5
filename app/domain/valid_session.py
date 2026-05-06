@@ -92,7 +92,7 @@ def show_qr_in_label(label, qr_url: str):
     """
     Génère un QR code à partir de l'URL et l'affiche dans un QLabel.
     """
-    qr = qrcode.QRCode(border=1)
+    qr = qrcode.QRCode(border=2)
     qr.add_data(qr_url)
 
     qr.make(fit=True)
@@ -102,6 +102,11 @@ def show_qr_in_label(label, qr_url: str):
     img.save(buffer, format="PNG")
     pixmap = QPixmap()
     pixmap.loadFromData(buffer.getvalue(), "PNG")
+
+    size = label.minimumSize()
+    w = size.width() if size.width() > 0 else 220
+    h = size.height() if size.height() > 0 else 220
+    pixmap = pixmap.scaled(w, h, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
 
     label.setPixmap(pixmap)
     label.setAlignment(Qt.AlignmentFlag.AlignCenter)

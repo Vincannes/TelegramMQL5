@@ -12,7 +12,7 @@ from pathlib import Path
 def resource_path(relative_path: str) -> str:
     if hasattr(sys, "_MEIPASS"):
         return os.path.join(sys._MEIPASS, relative_path)
-    return os.path.join(os.path.abspath("."), relative_path)
+    return os.path.normpath(os.path.join(os.path.abspath("."), relative_path))
 
 
 # === FICHIERS UI / CONFIG ===
@@ -35,18 +35,17 @@ API_HASH = config["telegram"]["api_hash"]
 
 # === LOGS (ecriture EXTERNE à l exe) ===
 APPDATA_DIR = Path(os.getenv("APPDATA")) / "TelegramMQL"
-LOG_DIR = APPDATA_DIR / "logs"
-LOG_DIR.mkdir(parents=True, exist_ok=True)
+APPDATA_DIR.mkdir(parents=True, exist_ok=True)
 
-LOG_FILE = LOG_DIR / "telegram_log.log"
-JSON_DATA_FILE = LOG_DIR / "data.json"
+LOG_FILE = APPDATA_DIR / "telegram_log.log"
+JSON_DATA_FILE = APPDATA_DIR / "data.json"
 
 # === SESSION ===
 SESSION_NAME = "telegram_session.session"
-SESSION_PATH = LOG_DIR / SESSION_NAME
+SESSION_PATH = APPDATA_DIR / SESSION_NAME
 
 # === MQL ===
-SETTINGS_FILE = LOG_DIR / "settings.json"
+SETTINGS_FILE = APPDATA_DIR / "settings.json"
 if not os.path.exists(SETTINGS_FILE):
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
         json.dump({"MQL_DIR_PATH": None}, f, indent=4, ensure_ascii=False)
@@ -57,7 +56,10 @@ with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
 MQL_DIR_PATH = data.get("MQL_DIR_PATH", "")
 SIGNALS_FILENAME = None
 if MQL_DIR_PATH:
-    SIGNALS_FILENAME = os.path.join(MQL_DIR_PATH, "Files", "signals.json")
+    files_dir = MQL_DIR_PATH.replace("Experts", "")
+    SIGNALS_FILENAME = os.path.normpath(
+        os.path.join(files_dir, "Files", "signals.json")
+    )
 
 
 # === KEYWORDS ===

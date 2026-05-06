@@ -70,6 +70,41 @@ Telegram to MQL5 is an application that connects your Telegram account to MetaTr
 
 ---
 
+## First Launch Recommendation (Important)
+
+When launching **Telegram to MQL5** for the **first time**, the application performs initial setup steps such as:
+
+* Connecting your **Telegram account**
+* Saving the selected **MQL5 folder path**
+* Initializing configuration files and communication channels
+
+### 🔁 Recommended restart
+
+After completing **Telegram login** and **MQL5 folder selection for the first time**, it is **strongly recommended to restart the application**.
+
+**Why restart?**
+
+* Ensures all configuration files are fully loaded
+* Guarantees stable communication between:
+
+  * Telegram
+  * Telegram to MQL5 application
+  * MetaTrader 5 Expert Advisor (EA)
+* Prevents potential synchronization issues during the first session
+
+### ✅ Best practice
+
+1. Launch the application
+2. Select the **MQL5 folder**
+3. Log in to **Telegram**
+4. Close the application
+5. Relaunch **TelegramToMQL.exe**
+6. Start listening to Telegram groups normally
+
+> ⚠️ This restart is only required on the **first launch** or after changing the **MQL5 folder**.
+
+---
+
 ## Message Customization
 
 The application allows you to **configure your own keyword expressions** to automatically detect orders in Telegram messages.

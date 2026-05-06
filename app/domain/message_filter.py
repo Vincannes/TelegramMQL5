@@ -94,6 +94,8 @@ class MessageFilter(object):
         direction = self._get_order_type()
         if not direction:
             raise DirectionError(self._text)
+        
+        print(direction)
 
         pair = self._get_pair()
         if not pair:

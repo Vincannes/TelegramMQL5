@@ -25,9 +25,9 @@ class OrderModel(object):
 
     @property
     def order_type(self):
-        if self._direction in ["buy", "achat", "long"]:
+        if self._direction in ["buy", "achat", "long", "achete"]:
             return self.ORDER_TYPE_BUY
-        elif self._direction in ["sell", "vente", "short"]:
+        elif self._direction in ["sell", "vente", "short", "vends"]:
             return self.ORDER_TYPE_SELL
         else:
             return self.ORDER_TYPE_NONE
