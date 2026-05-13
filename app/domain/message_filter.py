@@ -25,6 +25,10 @@ class MessageFilter(object):
                 k, v = m.split("=")
                 self._pairs_mapping[k.strip().lower()] = v.strip().lower()
 
+    @property
+    def text(self):
+        return self._text
+
     def normalize_text(self, text: str) -> str:
         text = text.replace("\n", " ").replace("\r", " ")
 
@@ -49,12 +53,20 @@ class MessageFilter(object):
         return text
 
     def _get_order_type(self):
-        keywords = [kw.strip() for kw in self.TEMPLATE_REGEX.get(constants.ORDER_KEY_FIELD, "").split(",")]
-        if not keywords:
-            return None
-        pattern = r"\b(" + "|".join(map(re.escape, keywords)) + r")\b"
-        m = re.search(pattern, self._text, FLAGS)
-        return m.group(0) if m else None
+        buy_kws = [kw.strip() for kw in self.TEMPLATE_REGEX.get(constants.BUY_KEY_FIELD, "").split(",") if kw.strip()]
+        sell_kws = [kw.strip() for kw in self.TEMPLATE_REGEX.get(constants.SELL_KEY_FIELD, "").split(",") if kw.strip()]
+
+        if buy_kws:
+            pattern = r"\b(" + "|".join(map(re.escape, buy_kws)) + r")\b"
+            if re.search(pattern, self._text, FLAGS):
+                return OrderModel.ORDER_TYPE_BUY
+
+        if sell_kws:
+            pattern = r"\b(" + "|".join(map(re.escape, sell_kws)) + r")\b"
+            if re.search(pattern, self._text, FLAGS):
+                return OrderModel.ORDER_TYPE_SELL
+
+        return None
 
     def _get_pair(self):
         if not self._pairs:
@@ -91,12 +103,10 @@ class MessageFilter(object):
         return [m.group(2) for m in matches]
 
     def parse_signal(self):
-        direction = self._get_order_type()
-        if not direction:
+        order_type = self._get_order_type()
+        if order_type is None:
             raise DirectionError(self._text)
         
-        print(direction)
-
         pair = self._get_pair()
         if not pair:
             raise PairErrors(self._pairs)
@@ -111,7 +121,7 @@ class MessageFilter(object):
         stop = self._get_stop()
         profits = self._get_profits()
         return OrderModel(
-            direction=direction,
+            order_type=order_type,
             pair=pair,
             price=price,
             stop=stop,
@@ -155,7 +165,8 @@ if __name__ == "__main__":
     txt5 = "buy gold at 4931 sl at 4886.5 tp at 4955"
 
     data = {
-        "Order Type Keyword": "buy, sell, achat, vente, long, short",
+        "Buy Keyword": "buy, achat, long, achete",
+        "Sell Keyword": "sell, vente, short, vends",
         "Entry Price Keyword": "Entry zone, at, now, prix d entree, sell, buy, entry",
         "Stop Loss Keyword": "stop loss, stop-loss, sl, sl @, STOPLOSS, Stop",
         "Take Profit Keyword": "take profit, TProfit, take-profit, tp, TakeProfit, TARGETS, - , TP 1 : , TP 4 : , TP 2 : , TP 3 : ",

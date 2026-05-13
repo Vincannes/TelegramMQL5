@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QApplication, QListWidgetItem
 from app import constants
 from app.domain.logging import setup_logger
 from app.domain.valid_session import authorize_qt
-from app.domain.telegram_listener import start_listener, get_channels
+from app.domain.telegram_listener import register_listener, get_channels
 from app.ui.telegram_mql_ui import MainController
 from app.ui.config_windows_ui import ConfigWindow
 
@@ -33,6 +33,7 @@ class AppController(MainController):
         # Client Telegram unique
         self.client = TelegramClient(constants.SESSION_PATH, api_id, api_hash)
         self.listener_task = None
+        self.active_handler = None
         self.group_configs = {}
 
         logger.info(f"Session path: {constants.SESSION_PATH}")
@@ -89,6 +90,8 @@ class AppController(MainController):
         for key, value in groups.items():
             item = QListWidgetItem(str(key))
             item.setData(Qt.UserRole, value)
+            item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsUserCheckable)
+            item.setCheckState(Qt.Unchecked)
             self.window.listGroups.addItem(item)
 
     async def on_login_qr(self):
@@ -115,35 +118,23 @@ class AppController(MainController):
             logger.info("QR login cancelled")
             self.reset_login_ui()
 
-    async def handle_validate(self, group_id, group_name):
-        if not group_id:
+    async def handle_validate(self, group_configs: dict):
+        if not group_configs:
             return
 
-        logger.info(f"Selected group: (ID: {group_id})")
-        self.window.footerLog.setText(f"Selected group: (ID: {group_id})")
+        if self.active_handler:
+            self.client.remove_event_handler(self.active_handler)
+            self.active_handler = None
 
-        # ---- UI ----
-        # Lock tous les items et forcer la sélection
-        for i in range(self.window.listGroups.count()):
-            item = self.window.listGroups.item(i)
-            item.setFlags(item.flags() & ~Qt.ItemIsEnabled)
-        selected_item = self.window.listGroups.currentItem()
-        if selected_item:
-            self.window.listGroups.setCurrentItem(selected_item)
+        names = ", ".join(group_configs.values())
+        logger.info(f"Selected groups: {names}")
+        self.window.footerLog.setText(f"Listening: {names}")
 
-        # Bouton Validate devient Unvalidate
-        self.window.btnValidate.setText("Unvalidate")
-
-        # Label status
-        self.window.labelStatus.setText("Listening")
         self.window.labelStatus.setText("<b>Status:</b> Listening")
         self.window.labelStatus.setVisible(True)
 
-        # ---- Start listener task si pas déjà démarrée ----
-        if not self.listener_task or self.listener_task.done():
-            self.listener_task = asyncio.create_task(
-                start_listener(self.client, int(group_id), group_name, self.logger_widget)
-            )
+        int_configs = {int(gid): gname for gid, gname in group_configs.items()}
+        self.active_handler = register_listener(self.client, int_configs, self.logger_widget)
 
     async def on_next_folder(self):
         with open(constants.SETTINGS_FILE, "r", encoding="utf-8") as f:
@@ -157,14 +148,17 @@ class AppController(MainController):
             self.window.stackedWidget.setCurrentWidget(self.window.page_phone)
 
     def open_config_window(self):
-        item = self.window.listGroups.currentItem()
-        if not item:
-            logger.info("Please select a group first")
+        groups = []
+        for i in range(self.window.listGroups.count()):
+            item = self.window.listGroups.item(i)
+            if item.checkState() == Qt.Checked:
+                groups.append(item.text())
+
+        if not groups:
+            logger.info("No group selected")
             return
 
-        # group_id = item.data(Qt.UserRole)
-        group = item.text()
-        config_window = ConfigWindow(group, self.window)
+        config_window = ConfigWindow(groups, self.window)
         config_window.exec()
 
     def on_back_qr(self):

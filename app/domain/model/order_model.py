@@ -12,8 +12,8 @@ class OrderModel(object):
     ORDER_TYPE_BUY = 1
     ORDER_TYPE_SELL = 2
 
-    def __init__(self, direction, pair, price, stop, profits):
-        self._direction = direction
+    def __init__(self, order_type, pair, price, stop, profits):
+        self._order_type = order_type
         self._pair = pair
         self._price = price
         self._stop = stop
@@ -25,12 +25,7 @@ class OrderModel(object):
 
     @property
     def order_type(self):
-        if self._direction in ["buy", "achat", "long", "achete"]:
-            return self.ORDER_TYPE_BUY
-        elif self._direction in ["sell", "vente", "short", "vends"]:
-            return self.ORDER_TYPE_SELL
-        else:
-            return self.ORDER_TYPE_NONE
+        return self._order_type
 
     @property
     def price(self):

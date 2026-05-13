@@ -63,29 +63,33 @@ if MQL_DIR_PATH:
 
 
 # === KEYWORDS ===
-ORDER_KEY = "OrderTypeKeyword"
+BUY_KEY = "BuyKeyword"
+SELL_KEY = "SellKeyword"
 ENTRY_KEY = "EntryPriceKeyword"
 SL_KEY = "StopLossKeyword"
 TP_KEY = "TakeProfitKeyword"
 SYMBOL_KEY = "SymbolKeyword"
 CUST_SYMBOL_KEY = "CustomSymbolMatchs"
 
-ORDER_KEY_FIELD = "Order Type Keyword"
+BUY_KEY_FIELD = "Buy Keyword"
+SELL_KEY_FIELD = "Sell Keyword"
 ENTRY_KEY_FIELD = "Entry Price Keyword"
 SL_KEY_FIELD = "Stop Loss Keyword"
 TP_KEY_FIELD = "Take Profit Keyword"
 SYMBOL_KEY_FIELD = "Symbol Keyword"
 CUST_SYMBOL_KEY_FIELD = "Custom Symbol Matchs"
 
-ORDER_VALUE = "buy, sell, achat, vente, long, short"
-ENTRY_VALUE = "Entry zone, at, now, prix d entree, sell, buy, entry"
+BUY_VALUE = "buy, achat, long, achete"
+SELL_VALUE = "sell, vente, short, vends"
+ENTRY_VALUE = "Entry zone, at, now, prix d entree, sell, buy, entry, a"
 SL_VALUE = "stop loss, stop-loss, sl, sl @, STOPLOSS, Stop"
 TP_VALUE = "take profit, TProfit, take-profit, tp, TakeProfit, TARGET"
 SYMBOL_VALUE = "GOLD, BTC, EURUSD, USDJPY, XAUUSD, EURJPY, ETH"
 CUST_SYMBOL_VALUE = "GOLD=XAUUSD, BTC=BTCUSD"
 
 DEFAULT_FIELDS = {
-    ORDER_KEY_FIELD: ORDER_VALUE,
+    BUY_KEY_FIELD: BUY_VALUE,
+    SELL_KEY_FIELD: SELL_VALUE,
     ENTRY_KEY_FIELD: ENTRY_VALUE,
     SL_KEY_FIELD: SL_VALUE,
     TP_KEY_FIELD: TP_VALUE,
@@ -94,7 +98,8 @@ DEFAULT_FIELDS = {
 }
 
 DEFAULT_FIELDS_UI = {
-    ORDER_KEY_FIELD: (ORDER_KEY, ORDER_VALUE),
+    BUY_KEY_FIELD: (BUY_KEY, BUY_VALUE),
+    SELL_KEY_FIELD: (SELL_KEY, SELL_VALUE),
     ENTRY_KEY_FIELD: (ENTRY_KEY, ENTRY_VALUE),
     SL_KEY_FIELD: (SL_KEY, SL_VALUE),
     TP_KEY_FIELD: (TP_KEY, TP_VALUE),

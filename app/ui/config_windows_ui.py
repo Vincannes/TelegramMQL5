@@ -12,10 +12,12 @@ from app.domain.message_filter import MessageFilter
 class ConfigWindow(QDialog):
     FIELDS = constants.DEFAULT_FIELDS_UI
 
-    def __init__(self, group, parent=None):
+    def __init__(self, groups, parent=None):
         super().__init__(parent)
-        self._group = group
-        self.setWindowTitle("Channel Configuration")
+        # Accept a single group name or a list of group names
+        self._groups = groups if isinstance(groups, list) else [groups]
+        title_groups = ", ".join(self._groups)
+        self.setWindowTitle(f"Channel Configuration — {title_groups}")
         self.setFixedSize(800, 700)  # Taille fixe
 
         if parent:
@@ -85,10 +87,13 @@ class ConfigWindow(QDialog):
             except json.JSONDecodeError:
                 data = {}
 
-        if self._group in data and isinstance(data[self._group], dict):
-            for key, (label_text, default_value) in self.FIELDS.items():
-                if key in data[self._group]:
-                    self.inputs[label_text].setText(str(data[self._group][key]))
+        # Load from first group that has saved config
+        for group in self._groups:
+            if group in data and isinstance(data[group], dict):
+                for key, (label_text, default_value) in self.FIELDS.items():
+                    if key in data[group]:
+                        self.inputs[label_text].setText(str(data[group][key]))
+                break
 
     def on_reset(self):
         for label_text, line_edit in self.inputs.items():
@@ -111,18 +116,15 @@ class ConfigWindow(QDialog):
         else:
             data = {}
 
-        if self._group not in data:
-            data[self._group] = {}
-
+        group_config = {}
         for label_text, line_edit in self.inputs.items():
-            matching_key = None
             for key, (field_label, default_value) in self.FIELDS.items():
                 if field_label == label_text:
-                    matching_key = key
+                    group_config[key] = line_edit.text()
                     break
 
-            if matching_key:
-                data[self._group][matching_key] = line_edit.text()
+        for group in self._groups:
+            data[group] = group_config
 
         with open(constants.JSON_DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False)

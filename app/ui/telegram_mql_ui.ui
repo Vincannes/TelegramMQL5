@@ -443,63 +443,126 @@
       <!-- ================= PAGE GROUPS ================= -->
       <widget class="QWidget" name="page_groups">
        <layout class="QVBoxLayout" name="page2Layout">
-        <item>
-         <widget class="QLabel" name="titleGroups">
-          <property name="font">
-           <font>
-            <pointsize>16</pointsize>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string>Select a group</string>
-          </property>
-         </widget>
-        </item>
 
         <item>
-         <widget class="QListWidget" name="listGroups"/>
-        </item>
+         <widget class="QTabWidget" name="tabWidget">
 
-        <item>
-         <layout class="QHBoxLayout" name="actionsLayout">
-          <item>
-           <spacer name="spacerActions">
-            <property name="orientation">
-             <enum>Qt::Orientation::Horizontal</enum>
-            </property>
-           </spacer>
-          </item>
-          <item>
-           <widget class="QPushButton" name="btnValidate">
-            <property name="text">
-             <string>Validate</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
+          <!-- TAB: Groups -->
+          <widget class="QWidget" name="tabGroups">
+           <attribute name="title">
+            <string>Groups</string>
+           </attribute>
+           <layout class="QVBoxLayout" name="tabGroupsLayout">
 
-        <item>
-        <widget class="QPushButton" name="btnConfigure">
-         <property name="text">
-          <string>Configure group messages</string>
-         </property>
-        </widget>
-       </item>
+            <item>
+             <widget class="QLabel" name="titleGroups">
+              <property name="font">
+               <font>
+                <pointsize>14</pointsize>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Select groups</string>
+              </property>
+             </widget>
+            </item>
 
-        <!-- Status label -->
-        <item>
-         <widget class="QLabel" name="labelStatus">
-          <property name="text">
-           <string></string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignmentFlag::AlignLeft</set>
-          </property>
-          <property name="visible">
-           <bool>false</bool>
-          </property>
+            <item>
+             <widget class="QListWidget" name="listGroups">
+              <property name="selectionMode">
+               <enum>QAbstractItemView::SelectionMode::NoSelection</enum>
+              </property>
+             </widget>
+            </item>
+
+            <item>
+             <layout class="QHBoxLayout" name="actionsLayout">
+              <item>
+               <spacer name="spacerActions">
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+               </spacer>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnValidate">
+                <property name="text">
+                 <string>Validate</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+
+            <item>
+             <widget class="QPushButton" name="btnConfigure">
+              <property name="text">
+               <string>Configure group messages</string>
+              </property>
+             </widget>
+            </item>
+
+            <item>
+             <widget class="QLabel" name="labelStatus">
+              <property name="text">
+               <string></string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignmentFlag::AlignLeft</set>
+              </property>
+              <property name="visible">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+
+           </layout>
+          </widget>
+
+          <!-- TAB: Logs -->
+          <widget class="QWidget" name="tabLogs">
+           <attribute name="title">
+            <string>Logs</string>
+           </attribute>
+           <layout class="QVBoxLayout" name="tabLogsLayout">
+            <item>
+             <widget class="QTextEdit" name="logTextEdit">
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+              <property name="lineWrapMode">
+               <enum>QTextEdit::LineWrapMode::NoWrap</enum>
+              </property>
+              <property name="font">
+               <font>
+                <family>Courier New</family>
+                <pointsize>9</pointsize>
+               </font>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="logActionsLayout">
+              <item>
+               <spacer name="spacerLogActions">
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+               </spacer>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnClearLogs">
+                <property name="text">
+                 <string>Clear</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+
          </widget>
         </item>
 
@@ -516,7 +579,7 @@
       <item>
        <widget class="QLabel" name="footerVersion">
         <property name="text">
-         <string>2026 • v1.0</string>
+         <string>2026 • v2.0</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignmentFlag::AlignLeft</set>

@@ -218,6 +218,10 @@ pyinstaller app/TelegramMQL.spec --clean --noconfirm
 ```
 
 ---
+TODO:
+- Choisir LOT pour chaque pair depuis l'UI 
+
+---
 
 ## License
 

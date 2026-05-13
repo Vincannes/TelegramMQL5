@@ -3,12 +3,30 @@
 # copyright	:Vincannes
 
 import json
+import logging
 import asyncio
 from PySide6.QtUiTools import QUiLoader
-from PySide6.QtCore import QFile, Qt
+from PySide6.QtCore import QFile, Qt, QMetaObject, Q_ARG
 from PySide6.QtWidgets import QFileDialog
-
 from app import constants
+
+
+class QTextEditHandler(logging.Handler):
+    """Logging handler that appends records to a QTextEdit widget."""
+
+    def __init__(self, widget):
+        super().__init__()
+        self.widget = widget
+        fmt = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
+        self.setFormatter(fmt)
+
+    def emit(self, record):
+        msg = self.format(record)
+        QMetaObject.invokeMethod(
+            self.widget, "append",
+            Qt.ConnectionType.QueuedConnection,
+            Q_ARG(str, msg)
+        )
 
 
 class MainController(object):
@@ -43,6 +61,13 @@ class MainController(object):
 
         self.window.btnLoginCode.clicked.connect(self.go_to_groups)
         self.window.actionChangeMQLFolder.triggered.connect(self.show_select_folder)
+        self.window.listGroups.itemClicked.connect(self._toggle_check)
+        self.window.btnClearLogs.clicked.connect(self.window.logTextEdit.clear)
+
+        # Attach log handler to root logger
+        self._log_handler = QTextEditHandler(self.window.logTextEdit)
+        self._log_handler.setLevel(logging.DEBUG)
+        logging.getLogger().addHandler(self._log_handler)
 
     # ================= LOGIN =================
 
@@ -129,37 +154,55 @@ class MainController(object):
         self.reset_login_view()
 
     # ================= GROUP =================
+    def _toggle_check(self, item):
+        if not self.groups_locked:
+            new_state = Qt.Unchecked if item.checkState() == Qt.Checked else Qt.Checked
+            item.setCheckState(new_state)
+
+    def _checked_items(self):
+        result = []
+        for i in range(self.window.listGroups.count()):
+            item = self.window.listGroups.item(i)
+            if item.checkState() == Qt.Checked:
+                result.append(item)
+        return result
+
     def on_validate_group(self):
         if not self.groups_locked:
-            # LOCK all items
-            selected_item = self.window.listGroups.currentItem()
+            checked_items = self._checked_items()
+            if not checked_items:
+                return
 
+            # Lock unchecked items
+            checked_set = set(id(item) for item in checked_items)
             for i in range(self.window.listGroups.count()):
                 item = self.window.listGroups.item(i)
-                item.setFlags(item.flags() & ~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
+                if id(item) not in checked_set:
+                    item.setFlags(item.flags() & ~Qt.ItemIsEnabled & ~Qt.ItemIsUserCheckable)
 
-            selected_item.setFlags(selected_item.flags() | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
-            self.window.listGroups.setCurrentItem(selected_item)
-
+            names = ", ".join(item.text() for item in checked_items)
             self.window.btnValidate.setText("Unvalidate")
-            self.window.titleGroups.setText("Select a group: {}".format(selected_item.text()))
+            self.window.titleGroups.setText("Listening: {}".format(names))
             self.groups_locked = True
             self.window.labelStatus.setVisible(True)
             self.window.btnConfigure.setEnabled(True)
 
-            group_id = selected_item.data(Qt.UserRole)
-            group_name = selected_item.text()
+            group_configs = {
+                item.data(Qt.UserRole): item.text()
+                for item in checked_items
+            }
             if self.on_validate_callback:
-                asyncio.create_task(self.on_validate_callback(group_id, group_name))
+                asyncio.create_task(self.on_validate_callback(group_configs))
 
         else:
-            # UNLOCK all items
+            # Unlock all items and uncheck
             for i in range(self.window.listGroups.count()):
                 item = self.window.listGroups.item(i)
-                item.setFlags(item.flags() | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+                item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsUserCheckable)
+                item.setCheckState(Qt.Unchecked)
 
             self.window.btnConfigure.setEnabled(False)
-            self.window.titleGroups.setText("Select a group:")
+            self.window.titleGroups.setText("Select groups:")
             self.window.btnValidate.setText("Validate")
             self.groups_locked = False
             self.window.labelStatus.setVisible(False)

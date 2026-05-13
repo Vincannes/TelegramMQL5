@@ -34,49 +34,62 @@ async def get_channels(client):
         channels[dialog.name] = dialog.id
     return {k: channels[k] for k in sorted(channels.keys())}
 
-DATA = get_regex_values()
 logger = setup_logger(log_file=constants.LOG_FILE)
 
 
-async def start_listener(client: TelegramClient, group_id: int, group_name: str, post_action=False):
+def register_listener(client: TelegramClient, group_configs: dict, post_action=False):
     """
-    Start listening to a specific Telegram group and process incoming messages.
+    Register a NewMessage handler for the given groups.
+    Returns the handler so it can be removed later with client.remove_event_handler(handler).
+    group_configs: dict mapping group_id (int) -> group_name (str)
     """
+    chat_ids = list(group_configs.keys())
 
-    @client.on(events.NewMessage(chats=group_id))
+    @client.on(events.NewMessage(chats=chat_ids))
     async def handler(event):
         if not event.message.text:
             return
 
+        group_name = group_configs.get(event.chat_id, str(event.chat_id))
+
         logger.info(
-            "New message | sender=%s | text=%s",
+            "New message | group=%s | sender=%s | text=%s",
+            group_name,
             event.sender_id,
             event.message.text
         )
 
+        data = get_regex_values()
         model = None
-        MessageFilter.TEMPLATE_REGEX = DATA.get(group_name) if DATA else constants.DEFAULT_FIELDS
+        MessageFilter.TEMPLATE_REGEX = (data.get(group_name) if data else None) or constants.DEFAULT_FIELDS
         logger.info("Group name: %s" % group_name)
         logger.info(MessageFilter.TEMPLATE_REGEX)
         try:
             message = MessageFilter(event.message.text)
+            logger.info(message.text)
             model = message.parse_signal()
+
+            if not model.order_type:
+                failed_error(post_action, event, "Order type missing")
+                return
+            if not model.pair:
+                failed_error(post_action, event, "Pair is missing")
+                return
+            if not model.price:
+                failed_error(post_action, event, "Price is missing")
+                return
+            if not model.stop:
+                failed_error(post_action, event, "Stop-Loss is missing")
+                return
+            if not model.profits:
+                failed_error(post_action, event, "Take-Profits is missing")
+                return
 
             logger.info("Message successfully parsed")
             logger.debug("Parsed model: %s", model)
 
         except Exception as e:
-            err = FailedParseMessage(event.message.text, e)
-
-            logger.warning(
-                "Message parsing failed | text=%s",
-                event.message.text
-            )
-            logger.exception(err)
-            if post_action:
-                post_action(
-                    f"Message parsing failed.."
-                )
+            failed_error(post_action, event, e)
             return
 
         if not model:
@@ -115,8 +128,18 @@ async def start_listener(client: TelegramClient, group_id: int, group_name: str,
                 f"Signal saved for Symbol={signal['symbol']}"
             )
 
-    logger.info("Listening to Telegram group ID %s", group_id)
-    await client.run_until_disconnected()
-    logger.info("Disconnected from Telegram")
+    logger.info("Listening to groups: %s", list(group_configs.keys()))
+    return handler
 
 
+def failed_error(post_action, event, error):
+    err = FailedParseMessage(event.message.text, error)
+    logger.warning(
+        "Message parsing failed | text=%s",
+        event.message.text
+    )
+    logger.exception(err)
+    if post_action:
+        post_action(
+            f"Message parsing failed.."
+        )
