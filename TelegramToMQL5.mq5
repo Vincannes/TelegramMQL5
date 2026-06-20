@@ -1,3 +1,9 @@
+#property copyright "trolardv"
+#property version   "2.00"
+#property indicator_chart_window
+#property indicator_buffers 0
+#property indicator_plots   0
+
 #include <JAson.mqh>
 #include <Trade\Trade.mqh>
 
