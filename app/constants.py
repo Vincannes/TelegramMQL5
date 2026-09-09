@@ -8,11 +8,28 @@ import json
 import configparser
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 
 def resource_path(relative_path: str) -> str:
     if hasattr(sys, "_MEIPASS"):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.normpath(os.path.join(os.path.abspath("."), relative_path))
+
+
+# === .ENV ===
+# Cherche un .env a cote de l exe/du projet puis dans le cwd
+_ENV_CANDIDATES = [
+    os.path.join(os.path.dirname(sys.executable), ".env"),
+    resource_path(".env"),
+    os.path.join(os.getcwd(), ".env"),
+]
+for _env_path in _ENV_CANDIDATES:
+    if os.path.exists(_env_path):
+        load_dotenv(_env_path)
+        break
+else:
+    load_dotenv()
 
 
 # === FICHIERS UI / CONFIG ===
@@ -31,6 +48,10 @@ config.read(CONFIG_INI_FILE, encoding="utf-8")
 # === TELEGRAM ===
 API_ID = int(config["telegram"]["api_id"])
 API_HASH = config["telegram"]["api_hash"]
+
+# === TELEGRAM LOG EXPORT (bot + chat pour recevoir les logs de l app) ===
+TELEGRAM_LOG_BOT_TOKEN = os.getenv("TELEGRAM_LOG_BOT_TOKEN", "")
+TELEGRAM_LOG_CHAT_ID = os.getenv("TELEGRAM_LOG_CHAT_ID", "")
 
 
 # === LOGS (ecriture EXTERNE à l exe) ===
@@ -68,6 +89,8 @@ SELL_KEY = "SellKeyword"
 ENTRY_KEY = "EntryPriceKeyword"
 SL_KEY = "StopLossKeyword"
 TP_KEY = "TakeProfitKeyword"
+BE_KEY = "BreakEvenKeyword"
+CLOSE_KEY = "CloseTradeKeyword"
 SYMBOL_KEY = "SymbolKeyword"
 CUST_SYMBOL_KEY = "CustomSymbolMatchs"
 
@@ -76,6 +99,8 @@ SELL_KEY_FIELD = "Sell Keyword"
 ENTRY_KEY_FIELD = "Entry Price Keyword"
 SL_KEY_FIELD = "Stop Loss Keyword"
 TP_KEY_FIELD = "Take Profit Keyword"
+BE_KEY_FIELD = "Break Even Keyword"
+CLOSE_KEY_FIELD = "Close Trade Keyword"
 SYMBOL_KEY_FIELD = "Symbol Keyword"
 CUST_SYMBOL_KEY_FIELD = "Custom Symbol Matchs"
 
@@ -84,6 +109,8 @@ SELL_VALUE = "sell, vente, short, vends"
 ENTRY_VALUE = "Entry zone, at, now, prix d entree, sell, buy, entry, a"
 SL_VALUE = "stop loss, stop-loss, sl, sl @, STOPLOSS, Stop"
 TP_VALUE = "take profit, TProfit, take-profit, tp, TakeProfit, TARGET"
+BE_VALUE = "breakeven, break even, break-even, be, sl to entry, sl to be, mettre a be, mettre be, securiser, secure"
+CLOSE_VALUE = "close, close trade, close trades, close position, close positions, close all, closed, cloture, cloturer, cloturez, ferme, fermer, fermez, sortie, exit, cut"
 SYMBOL_VALUE = "GOLD, BTC, EURUSD, USDJPY, XAUUSD, EURJPY, ETH"
 CUST_SYMBOL_VALUE = "GOLD=XAUUSD, BTC=BTCUSD"
 
@@ -93,6 +120,8 @@ DEFAULT_FIELDS = {
     ENTRY_KEY_FIELD: ENTRY_VALUE,
     SL_KEY_FIELD: SL_VALUE,
     TP_KEY_FIELD: TP_VALUE,
+    BE_KEY_FIELD: BE_VALUE,
+    CLOSE_KEY_FIELD: CLOSE_VALUE,
     SYMBOL_KEY_FIELD: SYMBOL_VALUE,
     CUST_SYMBOL_KEY_FIELD: CUST_SYMBOL_VALUE,
 }
@@ -103,6 +132,8 @@ DEFAULT_FIELDS_UI = {
     ENTRY_KEY_FIELD: (ENTRY_KEY, ENTRY_VALUE),
     SL_KEY_FIELD: (SL_KEY, SL_VALUE),
     TP_KEY_FIELD: (TP_KEY, TP_VALUE),
+    BE_KEY_FIELD: (BE_KEY, BE_VALUE),
+    CLOSE_KEY_FIELD: (CLOSE_KEY, CLOSE_VALUE),
     SYMBOL_KEY_FIELD: (SYMBOL_KEY, SYMBOL_VALUE),
     CUST_SYMBOL_KEY_FIELD: (CUST_SYMBOL_KEY, CUST_SYMBOL_VALUE),
 }

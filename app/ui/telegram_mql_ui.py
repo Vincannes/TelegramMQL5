@@ -2,12 +2,15 @@
 # #support	:Trolard Vincent
 # copyright	:Vincannes
 
+import os
 import json
 import logging
 import asyncio
+import threading
+from urllib import request, parse
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt, QMetaObject, Q_ARG
-from PySide6.QtWidgets import QFileDialog
+from PySide6.QtWidgets import QFileDialog, QMessageBox
 from app import constants
 
 
@@ -61,6 +64,8 @@ class MainController(object):
 
         self.window.btnLoginCode.clicked.connect(self.go_to_groups)
         self.window.actionChangeMQLFolder.triggered.connect(self.show_select_folder)
+        self.window.actionCleanSignals.triggered.connect(self.clean_signals)
+        self.window.actionExportLog.triggered.connect(self.export_log)
         self.window.listGroups.itemClicked.connect(self._toggle_check)
         self.window.btnClearLogs.clicked.connect(self.window.logTextEdit.clear)
 
@@ -144,6 +149,87 @@ class MainController(object):
             self.window.lineEditFolderPath.clear()
             self.window.labelFolderStatus.setText("")
 
+
+    # ================= CLEAN SIGNALS =================
+    def clean_signals(self):
+        logger = logging.getLogger()
+        path = constants.SIGNALS_FILENAME
+
+        if not path:
+            QMessageBox.warning(
+                self.window, "Clean signals",
+                "No MQL folder configured, signals.json path is unknown."
+            )
+            return
+
+        confirm = QMessageBox.question(
+            self.window, "Clean signals",
+            "Delete and recreate an empty signals.json?\n{}".format(path),
+        )
+        if confirm != QMessageBox.Yes:
+            return
+
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump([], f, indent=4)
+            logger.info("signals.json cleaned: %s", path)
+        except Exception as exc:
+            logger.error("Failed to clean signals.json: %s", exc)
+            QMessageBox.critical(
+                self.window, "Clean signals",
+                "Failed to clean signals.json:\n{}".format(exc)
+            )
+
+    # ================= EXPORT LOG =================
+    def export_log(self):
+        log_text = self.window.logTextEdit.toPlainText().strip()
+        if not log_text:
+            QMessageBox.information(self.window, "Export log", "No log to export.")
+            return
+
+        if not constants.TELEGRAM_LOG_BOT_TOKEN or not constants.TELEGRAM_LOG_CHAT_ID:
+            QMessageBox.warning(
+                self.window, "Export log",
+                "TELEGRAM_LOG_BOT_TOKEN / TELEGRAM_LOG_CHAT_ID missing in .env."
+            )
+            return
+
+        logging.getLogger().info("Exporting logs to Telegram...")
+        threading.Thread(
+            target=self._send_log_to_telegram,
+            args=(log_text,),
+            daemon=True,
+        ).start()
+
+    def _send_log_to_telegram(self, log_text):
+        logger = logging.getLogger()
+        url = "https://api.telegram.org/bot{}/sendMessage".format(
+            constants.TELEGRAM_LOG_BOT_TOKEN
+        )
+        # Telegram limite un message a 4096 caracteres -> on decoupe le log
+        max_len = 4000
+        chunks = [log_text[i:i + max_len] for i in range(0, len(log_text), max_len)]
+        try:
+            for idx, chunk in enumerate(chunks, 1):
+                prefix = ""
+                if len(chunks) > 1:
+                    prefix = "[{}/{}]\n".format(idx, len(chunks))
+                query = parse.urlencode({
+                    "chat_id": constants.TELEGRAM_LOG_CHAT_ID,
+                    "text": prefix + chunk,
+                })
+                full_url = "{}?{}".format(url, query)
+                req = request.Request(url, data=query.encode("utf-8"))
+                with request.urlopen(req, timeout=20) as resp:
+                    resp.read()
+                # Trace de l URL sendMessage appelee
+                logger.info("sendMessage called: %s", full_url)
+            logger.info("Logs exported to Telegram (%d message(s))", len(chunks))
+        except Exception as exc:
+            logger.error("Failed to export logs to Telegram: %s", exc)
 
     # ================= NAVIGATION =================
     def go_to_groups(self):
