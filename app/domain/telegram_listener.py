@@ -61,7 +61,14 @@ def register_listener(client: TelegramClient, group_configs: dict, post_action=F
 
         data = get_regex_values()
         model = None
-        MessageFilter.TEMPLATE_REGEX = (data.get(group_name) if data else None) or constants.DEFAULT_FIELDS
+        # A config saved before a keyword field existed (e.g. "Close Trade
+        # Keyword") has no entry for it: fall back to the default for every
+        # key the saved config does not define. A key saved as an empty
+        # string is kept empty — that is how a channel disables a keyword.
+        group_data = (data.get(group_name) if data else None) or {}
+        template = dict(constants.DEFAULT_FIELDS)
+        template.update(group_data)
+        MessageFilter.TEMPLATE_REGEX = template
         logger.info("Group name: %s" % group_name)
         logger.info(MessageFilter.TEMPLATE_REGEX)
         try:
@@ -69,21 +76,26 @@ def register_listener(client: TelegramClient, group_configs: dict, post_action=F
             logger.info(message.text)
             model = message.parse_signal()
 
-            if not model.order_type:
-                failed_error(post_action, event, "Order type missing")
-                return
-            if not model.pair:
-                failed_error(post_action, event, "Pair is missing")
-                return
-            if not model.price:
-                failed_error(post_action, event, "Price is missing")
-                return
-            if not model.stop:
-                failed_error(post_action, event, "Stop-Loss is missing")
-                return
-            if not model.profits:
-                failed_error(post_action, event, "Take-Profits is missing")
-                return
+            if model.is_close:
+                logger.info("Close message parsed for %s", model.pair or "ALL positions")
+            elif model.is_breakeven:
+                logger.info("BreakEven message parsed for %s", model.pair or "ALL positions")
+            else:
+                if not model.order_type:
+                    failed_error(post_action, event, "Order type missing")
+                    return
+                if not model.pair:
+                    failed_error(post_action, event, "Pair is missing")
+                    return
+                if not model.price:
+                    failed_error(post_action, event, "Price is missing")
+                    return
+                if not model.stop:
+                    failed_error(post_action, event, "Stop-Loss is missing")
+                    return
+                if not model.profits:
+                    failed_error(post_action, event, "Take-Profits is missing")
+                    return
 
             logger.info("Message successfully parsed")
             logger.debug("Parsed model: %s", model)

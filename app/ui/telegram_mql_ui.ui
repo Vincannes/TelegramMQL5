@@ -39,6 +39,8 @@
 
     <!-- Action pour changer le dossier MQL -->
     <addaction name="actionChangeMQLFolder"/>
+    <addaction name="actionCleanSignals"/>
+    <addaction name="actionExportLog"/>
    </widget>
 
    <addaction name="menuFile"/>
@@ -48,6 +50,16 @@
   <action name="actionChangeMQLFolder">
    <property name="text">
     <string>Change MQL Folder...</string>
+   </property>
+  </action>
+  <action name="actionCleanSignals">
+   <property name="text">
+    <string>Clean signals</string>
+   </property>
+  </action>
+  <action name="actionExportLog">
+   <property name="text">
+    <string>Export log</string>
    </property>
   </action>
   <widget class="QWidget" name="centralwidget">
@@ -579,7 +591,7 @@
       <item>
        <widget class="QLabel" name="footerVersion">
         <property name="text">
-         <string>2026 • v2.0</string>
+         <string>2026 • v6.1</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignmentFlag::AlignLeft</set>

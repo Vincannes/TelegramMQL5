@@ -50,6 +50,13 @@ class MessageFilter(object):
 
         # 5. Cleaning of multiple spaces
         text = re.sub(r"\s+", " ", text).strip()
+
+        # 6. Decimal comma -> decimal point (4625,5 -> 4625.5). Only a comma
+        #    glued between digits and followed by at most two digits counts as
+        #    a decimal: "4,625" (three digits) is a thousands separator and
+        #    falls through to the removal below, like every other comma.
+        text = re.sub(r"(?<=\d),(?=\d{1,2}(?!\d))", ".", text)
+        text = text.replace(",", "")
         return text
 
     def _get_order_type(self):
@@ -94,19 +101,84 @@ class MessageFilter(object):
         m = re.search(pattern, self._text, FLAGS)
         return m.group(2) if m else None
 
+    def _is_breakeven(self):
+        keywords = [kw.strip() for kw in self.TEMPLATE_REGEX.get(constants.BE_KEY_FIELD, "").split(",") if kw.strip()]
+        if not keywords:
+            return False
+        pattern = r"\b(" + "|".join(map(re.escape, keywords)) + r")\b"
+        return bool(re.search(pattern, self._text, FLAGS))
+
+    def _is_close(self):
+        keywords = [kw.strip() for kw in self.TEMPLATE_REGEX.get(constants.CLOSE_KEY_FIELD, "").split(",") if kw.strip()]
+        if not keywords:
+            return False
+        pattern = r"\b(" + "|".join(map(re.escape, keywords)) + r")\b"
+        return bool(re.search(pattern, self._text, FLAGS))
+
     def _get_profits(self):
-        keywords = [kw.strip() for kw in self.TEMPLATE_REGEX.get(constants.TP_KEY_FIELD, "").split(",")]
+        keywords = [kw.strip() for kw in self.TEMPLATE_REGEX.get(constants.TP_KEY_FIELD, "").split(",") if kw.strip()]
         if not keywords:
             return []
-        pattern = r"\b(" + "|".join(map(re.escape, keywords)) + r")\b\s*(?:[:\-]|at)?\s*([\d.,]+)"
-        matches = re.finditer(pattern, self._text, FLAGS)
-        return [m.group(2) for m in matches]
+        # \d{0,2} lets an index glued to the keyword (tp1, tp2, tp3) match
+        # without being captured as the price. The \b after keeps "tp 4220"
+        # (space-separated price) intact instead of eating its digits.
+        #
+        # The price group grabs every number that follows the keyword, so a
+        # single keyword like "tps 4060.0 4067.0" yields both targets. NUMBER
+        # accepts a dot decimal (4060.0) or a comma decimal (4842,62) but stops
+        # before a field-separator comma (the one in "4067.0 , date") because
+        # that comma is not followed by a digit. Each number is then split out.
+        number = r"\d[\d.]*(?:,\d+)?"
+        pattern = (
+            r"\b(" + "|".join(map(re.escape, keywords)) +
+            r")\d{0,2}\b\s*(?:[:\-]|at)?\s*((?:" + number + r"[\s,]*)+)"
+        )
+        profits = []
+        for m in re.finditer(pattern, self._text, FLAGS):
+            profits += re.findall(number, m.group(2))
+        return profits
 
     def parse_signal(self):
+        # Close message: a close keyword is an explicit instruction, so it is
+        # checked before the direction. "close the sell on gold" must close the
+        # position, not be read as a new Sell order.
+        if self._is_close():
+            # Pair is optional. When absent, MQL5 closes every position/order
+            # opened by this EA.
+            pair = self._get_pair()
+            if pair and pair in self._pairs_mapping.keys():
+                pair = self._pairs_mapping.get(pair, pair)
+            return OrderModel(
+                order_type=None,
+                pair=pair,
+                price=None,
+                stop=None,
+                profits=[],
+                action=OrderModel.ACTION_CLOSE,
+            )
+
         order_type = self._get_order_type()
+
+        # BreakEven message: BE keyword present and no buy/sell direction.
+        # Only a pair is needed to target the open position(s) on MQL5.
+        if order_type is None and self._is_breakeven():
+            # Pair is optional for a BreakEven message. When absent, MQL5
+            # applies it to every open position of this EA.
+            pair = self._get_pair()
+            if pair and pair in self._pairs_mapping.keys():
+                pair = self._pairs_mapping.get(pair, pair)
+            return OrderModel(
+                order_type=None,
+                pair=pair,
+                price=None,
+                stop=None,
+                profits=[],
+                action=OrderModel.ACTION_BREAKEVEN,
+            )
+
         if order_type is None:
             raise DirectionError(self._text)
-        
+
         pair = self._get_pair()
         if not pair:
             raise PairErrors(self._pairs)
