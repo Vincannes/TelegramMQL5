@@ -213,7 +213,8 @@ class AppController(MainController):
             return
 
         progress.close()
-        updater.apply_update_and_restart(new_exe_path)
+        install_target = sys.executable if getattr(sys, "frozen", False) else None
+        updater.launch_downloaded_exe(new_exe_path, install_target=install_target)
         QApplication.quit()
 
 
@@ -236,6 +237,10 @@ def main():
     # loop.create_task(controller.load_existing_session())
     loop.create_task(controller.initialize_ui())
     loop.create_task(controller.check_for_updates())
+
+    install_target = updater.get_pending_install_target(sys.argv)
+    if install_target:
+        loop.run_in_executor(None, updater.install_self_over, install_target)
 
     with loop:
         loop.run_forever()

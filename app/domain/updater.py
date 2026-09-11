@@ -2,13 +2,17 @@
 """Auto-update via GitHub Releases: check, download and apply a new build."""
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from typing import Optional
+
+FINISH_UPDATE_FLAG = "--finish-update"
 
 from packaging.version import parse as parse_version
 
@@ -106,52 +110,55 @@ def download_update(download_url: str) -> str:
     return tmp_path
 
 
-def apply_update_and_restart(new_exe_path: str) -> None:
+def launch_downloaded_exe(exe_path: str, install_target: Optional[str] = None) -> None:
+    """Launches the freshly downloaded exe directly.
+
+    When install_target is given, the new process is told (via a CLI flag) to
+    copy itself over that path once it starts, so the originally installed
+    exe gets updated too, in-process and with proper retries/logging instead
+    of an external wait/move .bat script.
     """
-    Generates a script that waits for the current process to exit, replaces
-    the current exe with the new one, then relaunches the application. Call
-    this right before closing the app (QApplication.quit()); it is a no-op
-    outside a frozen build.
-    """
-    if not getattr(sys, "frozen", False):
-        logger.warning("apply_update_and_restart ignored: not a frozen build")
-        return
-
-    current_exe = sys.executable
-    updater_script = os.path.join(tempfile.gettempdir(), "telegram_mql_update.bat")
-    update_log = os.path.join(tempfile.gettempdir(), "telegram_mql_update.log")
-
-    # The old exe stays locked for a moment after the process exits (PyInstaller
-    # onefile has a bootloader parent process), so retry the move instead of
-    # trying to track PIDs, which is fragile and was leaving nothing launched.
-    script_content = (
-        "@echo off\n"
-        "setlocal\n"
-        f'set "NEWEXE={new_exe_path}"\n'
-        f'set "TARGET={current_exe}"\n'
-        f'set "LOG={update_log}"\n'
-        "set /a tries=0\n"
-        ":retry\n"
-        "set /a tries+=1\n"
-        'move /Y "%NEWEXE%" "%TARGET%" >NUL 2>>"%LOG%"\n'
-        "if errorlevel 1 (\n"
-        "    if %tries% GEQ 30 (\n"
-        '        echo Update failed after 30 retries, giving up. >>"%LOG%"\n'
-        "        goto launch\n"
-        "    )\n"
-        "    timeout /t 1 /nobreak >NUL\n"
-        "    goto retry\n"
-        ")\n"
-        ":launch\n"
-        "timeout /t 2 /nobreak >NUL\n"
-        'start "" "%TARGET%"\n'
-        'del "%~f0"\n'
-    )
-    with open(updater_script, "w", encoding="utf-8") as f:
-        f.write(script_content)
-
+    args = [exe_path]
+    if install_target:
+        args += [FINISH_UPDATE_FLAG, install_target]
     subprocess.Popen(
-        ["cmd", "/c", updater_script],
+        args,
         creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
         close_fds=True,
     )
+
+
+def get_pending_install_target(argv) -> Optional[str]:
+    """Returns the target path to self-install to, if argv carries the flag."""
+    if FINISH_UPDATE_FLAG in argv:
+        idx = argv.index(FINISH_UPDATE_FLAG)
+        if idx + 1 < len(argv):
+            return argv[idx + 1]
+    return None
+
+
+def install_self_over(target_path: str) -> None:
+    """Copies the currently running exe over target_path.
+
+    Blocking: the original exe stays locked for a moment after the old
+    process exits, so this retries for up to ~30s. Run in a background
+    thread/executor, never on the UI thread. No-op outside a frozen build.
+    """
+    if not getattr(sys, "frozen", False):
+        logger.warning("install_self_over ignored: not a frozen build")
+        return
+
+    source = sys.executable
+    if os.path.abspath(source) == os.path.abspath(target_path):
+        return
+
+    for attempt in range(1, 31):
+        try:
+            shutil.copy2(source, target_path)
+            logger.info(f"Update installed to {target_path}")
+            return
+        except OSError as exc:
+            logger.info(f"Install retry {attempt}/30 for {target_path}: {exc}")
+            time.sleep(1)
+
+    logger.warning(f"Failed to install update to {target_path} after retries")
