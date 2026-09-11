@@ -31,7 +31,7 @@ class UpdateInfo:
 
 
 def check_for_update() -> Optional[UpdateInfo]:
-    """Interroge l'API GitHub Releases. Bloquant : a lancer hors du thread UI."""
+    """Queries the GitHub Releases API. Blocking: run outside the UI thread."""
     request = urllib.request.Request(
         GITHUB_API_LATEST_RELEASE,
         headers={"User-Agent": USER_AGENT, "Accept": "application/vnd.github+json"},
@@ -39,6 +39,12 @@ def check_for_update() -> Optional[UpdateInfo]:
     try:
         with urllib.request.urlopen(request, timeout=10) as response:
             data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            logger.info("No GitHub release published yet")
+        else:
+            logger.warning(f"Update check failed: {exc}")
+        return None
     except (urllib.error.URLError, TimeoutError, ValueError) as exc:
         logger.warning(f"Update check failed: {exc}")
         return None
@@ -70,7 +76,7 @@ def check_for_update() -> Optional[UpdateInfo]:
 
 
 def download_update(download_url: str) -> str:
-    """Telecharge le nouvel exe dans un fichier temporaire et retourne son chemin."""
+    """Downloads the new exe to a temporary file and returns its path."""
     request = urllib.request.Request(download_url, headers={"User-Agent": USER_AGENT})
     tmp_fd, tmp_path = tempfile.mkstemp(suffix=".exe", prefix="TelegramToMQL_update_")
     with urllib.request.urlopen(request, timeout=60) as response, os.fdopen(tmp_fd, "wb") as tmp_file:
@@ -84,28 +90,42 @@ def download_update(download_url: str) -> str:
 
 def apply_update_and_restart(new_exe_path: str) -> None:
     """
-    Genere un script qui attend la fermeture du process courant, remplace
-    l'exe actuel par le nouveau puis relance l'application. A appeler juste
-    avant de fermer l'app (QApplication.quit()) ; ne fait rien hors build gele.
+    Generates a script that waits for the current process to exit, replaces
+    the current exe with the new one, then relaunches the application. Call
+    this right before closing the app (QApplication.quit()); it is a no-op
+    outside a frozen build.
     """
     if not getattr(sys, "frozen", False):
         logger.warning("apply_update_and_restart ignored: not a frozen build")
         return
 
     current_exe = sys.executable
-    pid = os.getpid()
     updater_script = os.path.join(tempfile.gettempdir(), "telegram_mql_update.bat")
+    update_log = os.path.join(tempfile.gettempdir(), "telegram_mql_update.log")
 
+    # The old exe stays locked for a moment after the process exits (PyInstaller
+    # onefile has a bootloader parent process), so retry the move instead of
+    # trying to track PIDs, which is fragile and was leaving nothing launched.
     script_content = (
         "@echo off\n"
-        ":wait_loop\n"
-        f'tasklist /FI "PID eq {pid}" 2^>NUL | find "{pid}" >NUL\n'
-        "if not errorlevel 1 (\n"
+        "setlocal\n"
+        f'set "NEWEXE={new_exe_path}"\n'
+        f'set "TARGET={current_exe}"\n'
+        f'set "LOG={update_log}"\n'
+        "set /a tries=0\n"
+        ":retry\n"
+        "set /a tries+=1\n"
+        'move /Y "%NEWEXE%" "%TARGET%" >NUL 2>>"%LOG%"\n'
+        "if errorlevel 1 (\n"
+        "    if %tries% GEQ 30 (\n"
+        '        echo Update failed after 30 retries, giving up. >>"%LOG%"\n'
+        "        goto launch\n"
+        "    )\n"
         "    timeout /t 1 /nobreak >NUL\n"
-        "    goto wait_loop\n"
+        "    goto retry\n"
         ")\n"
-        f'move /Y "{new_exe_path}" "{current_exe}" >NUL\n'
-        f'start "" "{current_exe}"\n'
+        ":launch\n"
+        'start "" "%TARGET%"\n'
         'del "%~f0"\n'
     )
     with open(updater_script, "w", encoding="utf-8") as f:

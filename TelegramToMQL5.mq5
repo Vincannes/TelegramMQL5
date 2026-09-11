@@ -754,8 +754,8 @@ void SendMessage(string Message){
    string resHeaders;
    
    const string TG_API_URL = "https://api.telegram.org/";
-   const string chat_ID="1154816682";
-   string botTkn="8396387983:AAEcolgIp984uI5O_qpC0Gp9Y1Avf05m8Iw";
+   const string chat_ID="";
+   string botTkn="";
    const string url = TG_API_URL+"bot"+botTkn+"/sendmessage?chat_id="+chat_ID+"&text="+Message;
    Print(Message);
    

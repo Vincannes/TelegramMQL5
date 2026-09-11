@@ -194,7 +194,10 @@ class AppController(MainController):
         if not update_info:
             return
 
-        if not show_update_available_dialog(self.window, update_info.version, update_info.notes):
+        accepted = await show_update_available_dialog(
+            self.window, update_info.version, update_info.notes
+        )
+        if not accepted:
             return
 
         progress = make_download_progress_dialog(self.window)
