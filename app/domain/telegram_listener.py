@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # support : Trolard Vincent
-# copyright : Vincannes
+# copyright : vincenttld
 
 import os
 import json

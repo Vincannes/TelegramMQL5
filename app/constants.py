@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # support   : Trolard Vincent
-# copyright : Vincannes
+# copyright : vincenttld
 
 import os
 import sys
@@ -11,8 +11,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-APP_VERSION = "6.1.0"
-GITHUB_REPO = "Vincannes/TelegramMQL5"
+APP_VERSION = "6.2.0"
+GITHUB_REPO = "vincenttld/TelegramMQL5"
 
 
 def resource_path(relative_path: str) -> str:
