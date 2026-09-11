@@ -110,6 +110,7 @@ def register_listener(client: TelegramClient, group_configs: dict, post_action=F
 
         signal = model.to_dict()
         signal["date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        signal["channel_id"] = event.chat_id
 
         async with client_lock:
             if os.path.exists(constants.SIGNALS_FILENAME):

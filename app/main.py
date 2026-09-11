@@ -16,8 +16,14 @@ from app import constants
 from app.domain.logging import setup_logger
 from app.domain.valid_session import authorize_qt
 from app.domain.telegram_listener import register_listener, get_channels
+from app.domain import updater
 from app.ui.telegram_mql_ui import MainController
 from app.ui.config_windows_ui import ConfigWindow
+from app.ui.update_dialog import (
+    show_update_available_dialog,
+    make_download_progress_dialog,
+    show_update_failed_dialog,
+)
 
 
 api_id = int(constants.config["telegram"]["api_id"])
@@ -51,6 +57,7 @@ class AppController(MainController):
         # Callback sur Validate
         self.on_validate_callback = self.handle_validate
         self.window.btnConfigure.setEnabled(False)
+        self.window.footerVersion.setText(f"2026 • v{constants.APP_VERSION}")
 
     async def load_existing_session(self) -> bool:
         if os.path.exists(constants.SESSION_PATH) and constants.MQL_DIR_PATH:
@@ -176,6 +183,36 @@ class AppController(MainController):
     def logger_widget(self, msg):
         self.window.footerLog.setText(msg)
 
+    async def check_for_updates(self):
+        loop = asyncio.get_event_loop()
+        try:
+            update_info = await loop.run_in_executor(None, updater.check_for_update)
+        except Exception as exc:
+            logger.warning(f"Update check error: {exc}")
+            return
+
+        if not update_info:
+            return
+
+        if not show_update_available_dialog(self.window, update_info.version, update_info.notes):
+            return
+
+        progress = make_download_progress_dialog(self.window)
+        progress.show()
+        try:
+            new_exe_path = await loop.run_in_executor(
+                None, updater.download_update, update_info.download_url
+            )
+        except Exception as exc:
+            progress.close()
+            logger.warning(f"Update download failed: {exc}")
+            show_update_failed_dialog(self.window, str(exc))
+            return
+
+        progress.close()
+        updater.apply_update_and_restart(new_exe_path)
+        QApplication.quit()
+
 
 def main():
     app = QApplication(sys.argv)
@@ -195,6 +232,7 @@ def main():
     # Charger session existante
     # loop.create_task(controller.load_existing_session())
     loop.create_task(controller.initialize_ui())
+    loop.create_task(controller.check_for_updates())
 
     with loop:
         loop.run_forever()

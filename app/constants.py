@@ -11,6 +11,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
+APP_VERSION = "6.2.2"
+GITHUB_REPO = "Vincannes/TelegramMQL5"
+
+
 def resource_path(relative_path: str) -> str:
     if hasattr(sys, "_MEIPASS"):
         return os.path.join(sys._MEIPASS, relative_path)
