@@ -76,15 +76,33 @@ def check_for_update() -> Optional[UpdateInfo]:
 
 
 def download_update(download_url: str) -> str:
-    """Downloads the new exe to a temporary file and returns its path."""
+    """Downloads the new exe to a temporary file and returns its path.
+
+    Raises if the download is incomplete, so a corrupted exe never gets
+    installed and relaunched.
+    """
     request = urllib.request.Request(download_url, headers={"User-Agent": USER_AGENT})
     tmp_fd, tmp_path = tempfile.mkstemp(suffix=".exe", prefix="TelegramToMQL_update_")
-    with urllib.request.urlopen(request, timeout=60) as response, os.fdopen(tmp_fd, "wb") as tmp_file:
-        while True:
-            chunk = response.read(65536)
-            if not chunk:
-                break
-            tmp_file.write(chunk)
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response, os.fdopen(tmp_fd, "wb") as tmp_file:
+            expected_size = response.headers.get("Content-Length")
+            downloaded = 0
+            while True:
+                chunk = response.read(65536)
+                if not chunk:
+                    break
+                tmp_file.write(chunk)
+                downloaded += len(chunk)
+
+        if expected_size and downloaded != int(expected_size):
+            raise IOError(
+                f"Incomplete download: got {downloaded} bytes, expected {expected_size}"
+            )
+    except Exception:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise
+
     return tmp_path
 
 
@@ -125,6 +143,7 @@ def apply_update_and_restart(new_exe_path: str) -> None:
         "    goto retry\n"
         ")\n"
         ":launch\n"
+        "timeout /t 2 /nobreak >NUL\n"
         'start "" "%TARGET%"\n'
         'del "%~f0"\n'
     )
