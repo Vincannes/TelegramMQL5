@@ -3,11 +3,8 @@
 //|                                    Copyright 2026, trolardv      |
 //|                                           Version 2.00           |
 //+------------------------------------------------------------------+
-
-#define VERSION "2.0"
-
 #property copyright "trolardv"
-#property version   VERSION
+#property version   "2.00"
 #property indicator_chart_window
 #property indicator_buffers 0
 #property indicator_plots   0
@@ -51,7 +48,7 @@ int OnInit(){
 void OnTick(){
    ReadSignalsAndExecute();
    if(use_breakeven) ManageBreakEven();
-   Comment("Telegram to MQL5","\nVersion: " + VERSION);
+   Comment("Telegram to MQL5","\nVersion: 1.0.3");
 }
 
 //+------------------------------------------------------------------+
@@ -151,29 +148,6 @@ void ReadSignalsAndExecute(){
          continue;
       }
 
-      // ===== BREAK EVEN ACTION =====
-      // Un signal "breakeven" passe le SL a l'entree sur les trades de l'EA.
-      // symbol vide = tous les symboles. Traite AVANT la resolution du symbole.
-      if(action == "breakeven"){
-         if(!IsToday(sig["date"].ToStr())) continue; // ne pas rejouer un breakeven historique
-
-         string be_symbol = "";
-         StringTrimLeft(base_symbol);
-         StringTrimRight(base_symbol);
-         if(StringLen(base_symbol) > 0){
-            be_symbol = GetFullSymbol(base_symbol);
-            if(be_symbol == ""){
-               Print("❌ BreakEven: symbole '", base_symbol, "' non trouvé sur le broker → signal ignoré");
-               MarkSignalAsProcessed((int)index_pre);
-               continue;
-            }
-         }
-
-         if(ApplyBreakEven(be_symbol))
-            MarkSignalAsProcessed((int)index_pre);
-         continue;
-      }
-
       StringTrimLeft(base_symbol);
       StringTrimRight(base_symbol);
 
@@ -201,6 +175,12 @@ void ReadSignalsAndExecute(){
       string date    = sig["date"].ToStr();
       string comment = inpcomment;
       long index     = sig["index"].ToInt();
+
+      // ===== BREAK EVEN ACTION — DISABLED =====
+      if(action == "breakeven"){
+         MarkSignalAsProcessed((int)index);
+         continue;
+      }
 
       string final_comment = comment + "#" + IntegerToString(index);
       CJAVal tpArr = sig["tp"];
@@ -344,77 +324,6 @@ bool CloseAllTrades(string symbol)
    SendMessage(msg);
 
    return all_ok;
-}
-
-//+------------------------------------------------------------------+
-//| MOVE SL TO ENTRY (BREAK EVEN) ON THIS EA'S TRADES                 |
-//| symbol == "" -> tous les symboles                                |
-//| BUY  : seulement si Ask > prix d'entree                          |
-//| SELL : seulement si Bid < prix d'entree                          |
-//| Retourne true quand toutes les positions concernees sont a BE    |
-//| (sinon on re-tente au tick suivant, le temps que le prix bouge). |
-//+------------------------------------------------------------------+
-bool ApplyBreakEven(string symbol)
-{
-   int matched = 0, moved = 0, failed = 0, pending = 0;
-
-   for(int i = PositionsTotal() - 1; i >= 0; i--)
-   {
-      ulong ticket = PositionGetTicket(i);
-      if(ticket == 0) continue;
-      if(!PositionSelectByTicket(ticket)) continue;
-
-      string pos_symbol = PositionGetString(POSITION_SYMBOL);
-      if(symbol != "" && pos_symbol != symbol) continue;
-      // On ne touche qu'aux trades issus des signaux Telegram
-      if(StringFind(PositionGetString(POSITION_COMMENT), inpcomment) == -1) continue;
-
-      matched++;
-
-      int    digits     = (int)SymbolInfoInteger(pos_symbol, SYMBOL_DIGITS);
-      double point      = SymbolInfoDouble(pos_symbol, SYMBOL_POINT);
-      double open_price = NormalizeDouble(PositionGetDouble(POSITION_PRICE_OPEN), digits);
-      double cur_sl     = PositionGetDouble(POSITION_SL);
-      double cur_tp     = PositionGetDouble(POSITION_TP);
-      long   pos_type   = PositionGetInteger(POSITION_TYPE);
-
-      // Deja a l'entree (ou mieux) -> rien a faire
-      if(cur_sl > 0 && MathAbs(cur_sl - open_price) < point) continue;
-
-      if(pos_type == POSITION_TYPE_BUY)
-      {
-         double ask = SymbolInfoDouble(pos_symbol, SYMBOL_ASK);
-         if(ask <= open_price){ pending++; continue; }      // pas encore en profit
-         if(cur_sl > 0 && cur_sl > open_price) continue;     // SL deja au-dessus de l'entree
-      }
-      else if(pos_type == POSITION_TYPE_SELL)
-      {
-         double bid = SymbolInfoDouble(pos_symbol, SYMBOL_BID);
-         if(bid >= open_price){ pending++; continue; }       // pas encore en profit
-         if(cur_sl > 0 && cur_sl < open_price) continue;     // SL deja en-dessous de l'entree
-      }
-      else continue;
-
-      if(trade.PositionModify(ticket, open_price, cur_tp)){
-         moved++;
-         Print("✅ BreakEven #", ticket, " ", pos_symbol, " → SL=", DoubleToString(open_price, digits));
-      }
-      else{
-         failed++;
-         Print("❌ BreakEven #", ticket, " ", pos_symbol, " failed | ",
-               trade.ResultRetcode(), " ", trade.ResultRetcodeDescription());
-      }
-   }
-
-   string scope = (symbol == "" ? "ALL SYMBOLS" : symbol);
-   string msg = "BREAKEVEN signal (" + scope + ") → " + IntegerToString(moved) +
-                " position(s) a BE, " + IntegerToString(pending) + " en attente (hors profit), " +
-                IntegerToString(failed) + " echec(s)";
-   Print(msg);
-   if(moved > 0 || failed > 0) SendMessage(msg);
-
-   // Signal termine seulement si plus rien a faire : aucune position hors profit, aucun echec.
-   return (failed == 0 && pending == 0);
 }
 
 //+------------------------------------------------------------------+
@@ -709,8 +618,8 @@ void MarkSignalAsProcessed(int signal_index)
       json += "        \"action\": \""   + sig_action + "\",\n";
       json += "        \"symbol\": \""   + sig["symbol"].ToStr() + "\",\n";
 
-      // Un signal "close"/"breakeven" ne porte ni type/entry/sl/tp : on garde le record minimal
-      if(sig_action == "close" || sig_action == "breakeven"){
+      // Un signal "close" ne porte ni type/entry/sl/tp : on garde le record minimal
+      if(sig_action == "close"){
          json += "        \"date\": \""     + sig["date"].ToStr() + "\",\n";
          json += "        \"index\": "      + IntegerToString((int)sig["index"].ToInt()) + ",\n";
          json += "        \"processed\": "  + (sig["processed"].ToBool() ? "true" : "false") + "\n";
